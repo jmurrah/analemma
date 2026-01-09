@@ -18,8 +18,8 @@ export default function SignOutButton({
   };
 
   return (
-    <button type="button" onClick={handleClick}>
-      {label}
+    <button type="button" onClick={handleClick} className="link-underline">
+      <h2>{label}</h2>
     </button>
   );
 }

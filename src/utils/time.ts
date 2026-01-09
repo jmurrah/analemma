@@ -1,3 +1,5 @@
+import { APP_TIME_ZONE, TIME_LOCALE } from "@/constants/time";
+
 const partsToDate = (parts: Intl.DateTimeFormatPart[]): Date => {
   const lookup = Object.fromEntries(parts.map((p) => [p.type, p.value]));
   const y = Number(lookup.year);
@@ -10,8 +12,8 @@ const partsToDate = (parts: Intl.DateTimeFormatPart[]): Date => {
 };
 
 export const defaultWindowET = (): { start: Date; end: Date } => {
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
+  const fmt = new Intl.DateTimeFormat(TIME_LOCALE, {
+    timeZone: APP_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

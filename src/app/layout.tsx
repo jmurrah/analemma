@@ -45,12 +45,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="en"
-      className={`${barlow.variable} ${hedvig.variable}`}
-    >
+    <html lang="en" className={`${barlow.variable} ${hedvig.variable}`}>
       <body className="min-h-screen flex flex-col">
-        <main className="flex-1 flex h-col px-4">
+        <main className="flex-1 flex px-4 pt-4 justify-center">
           <LayoutContainer>{children}</LayoutContainer>
         </main>
         <Footer />

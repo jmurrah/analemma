@@ -17,7 +17,7 @@ export default function SignInPage({
         Welcome to <span className="text-[var(--primary)]">analemma</span>
       </h1>
       {showDenied ? (
-        <p className="text-red-600">
+        <p className="text-red-500">
           Access denied. Please use an allowed account.
         </p>
       ) : null}

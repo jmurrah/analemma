@@ -3,7 +3,12 @@ export default function Footer() {
     <footer className="p-4 w-full text-center">
       <p className="text-[var(--text-muted)]">
         Made with ❤️ by{" "}
-        <a href="https://murrah.dev/" target="_blank" rel="noopener noreferrer" className="link-underline">
+        <a
+          href="https://murrah.dev/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="link-underline"
+        >
           Jacob Murrah
         </a>
       </p>

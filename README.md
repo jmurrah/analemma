@@ -12,6 +12,9 @@ Shared (GitHub Actions & Vercel):
 - `NEXTAUTH_SECRET`
 - `NEXTAUTH_URL`
 - `ALLOWED_EMAILS`
+- `LOCATION`
+- `LATITUDE`
+- `LONGITUDE`
 
 GitHub Actions (R2 upload):
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LocationEnv } from "@/types/domain/location";
 
 const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().min(1, "GOOGLE_CLIENT_ID is required"),
@@ -12,6 +13,15 @@ const envSchema = z.object({
   R2_ENDPOINT: z.string().optional(),
   R2_ACCOUNT_ID: z.string().optional(),
   R2_BUCKET: z.string().optional(),
+  LOCATION: z.string().min(1, "LOCATION is required"),
+  LATITUDE: z.coerce
+    .number()
+    .min(-90, "LATITUDE must be between -90 and 90")
+    .max(90, "LATITUDE must be between -90 and 90"),
+  LONGITUDE: z.coerce
+    .number()
+    .min(-180, "LONGITUDE must be between -180 and 180")
+    .max(180, "LONGITUDE must be between -180 and 180"),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -24,4 +34,11 @@ if (!parsed.success) {
   throw new Error("Invalid environment variables");
 }
 
-export const authEnv = parsed.data;
+export const serverEnv = parsed.data;
+export const authEnv = serverEnv;
+
+export const locationEnv: LocationEnv = {
+  label: serverEnv.LOCATION,
+  latitude: serverEnv.LATITUDE,
+  longitude: serverEnv.LONGITUDE,
+};

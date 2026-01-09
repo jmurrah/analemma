@@ -88,5 +88,14 @@
 
 .link-underline:hover {
   cursor: pointer;
-  color: color-mix(in srgb, var(--primary) 85%, white);
+  color: color-mix(in srgb, var(--primary) var(--hover-primary-mix), white);
+}
+
+.icon-clock-count {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  background-color: var(--bg);
+  -webkit-mask: url("/icons/clock.svg") center / contain no-repeat;
+  mask: url("/icons/clock.svg") center / contain no-repeat;
 }
