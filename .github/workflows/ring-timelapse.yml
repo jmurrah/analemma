@@ -1,0 +1,69 @@
+name: ring-timelapse
+
+on:
+  schedule:
+    - cron: "0 1 * * *" # 9pm Eastern during DST
+    - cron: "0 2 * * *" # 9pm Eastern during Standard Time
+  workflow_dispatch:
+    inputs:
+      startIso:
+        description: ISO start timestamp
+        required: true
+      endIso:
+        description: ISO end timestamp
+        required: true
+      speed:
+        description: Playback speed (e.g., 4)
+        required: false
+        default: "30"
+      outKey:
+        description: Optional explicit R2 object key
+        required: false
+      cameraId:
+        description: Optional camera id
+        required: false
+      cameraName:
+        description: Optional camera name
+        required: false
+      clipType:
+        description: Optional clip type (daily/custom)
+        required: false
+
+jobs:
+  timelapse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RING_REFRESH_TOKEN: ${{ secrets.RING_REFRESH_TOKEN }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      START_ISO: ${{ inputs.startIso }}
+      END_ISO: ${{ inputs.endIso }}
+      SPEED: ${{ inputs.speed }}
+      OUT_KEY: ${{ inputs.outKey }}
+      CAMERA_ID: ${{ inputs.cameraId }}
+      CAMERA_NAME: ${{ inputs.cameraName }}
+      CLIP_TYPE: ${{ inputs.clipType }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Set defaults when scheduled
+        if: github.event_name == 'schedule'
+        run: npx tsx scripts/set-default-window.ts
+
+      - name: Run timelapse
+        run: npx tsx scripts/run-timelapse.ts --startIso=${START_ISO} --endIso=${END_ISO} --speed=${SPEED:-30} --outKey=${OUT_KEY:-} --cameraId=${CAMERA_ID:-} --cameraName=${CAMERA_NAME:-} --clipType=${CLIP_TYPE:-}

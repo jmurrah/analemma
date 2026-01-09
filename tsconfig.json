@@ -17,7 +17,7 @@
     "allowImportingTsExtensions": true,
     "types": ["node"],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./src/*"]
     },
     "plugins": [
       {
