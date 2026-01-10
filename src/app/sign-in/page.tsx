@@ -12,8 +12,8 @@ export default function SignInPage({
   const showDenied = resolvedParams?.error === "AccessDenied";
 
   return (
-    <div className="h-full w-full flex flex-col items-center justify-center gap-4">
-      <h1 className="text-5xl text-center">
+    <div className="w-full h-full flex-1 flex flex-col items-center justify-center gap-4 px-4 text-center">
+      <h1 className="text-5xl">
         Welcome to <span className="text-[var(--primary)]">analemma</span>
       </h1>
       {showDenied ? (

@@ -21,7 +21,7 @@ GitHub Actions (R2 upload):
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
 - `R2_ENDPOINT` (e.g., `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`)
-- `R2_ACCOUNT_ID`
+- `CLOUDFLARE_ACCOUNT_ID`
 - `R2_BUCKET`
 
 Vercel dispatch route:

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { AUTH_ROUTES } from "@/constants/auth";
 import { locationEnv } from "@/config/env.server";
 import SunsetCountdown from "@/features/sunlight/components/SunsetCountdown";
+import VideoGallery from "@/features/videos/components/VideoGallery";
 import { getTimes } from "@/utils/astronomy/solarLunar";
 
 export default async function HomePage() {
@@ -25,7 +26,7 @@ export default async function HomePage() {
   return (
     <div className="w-full h-full flex flex-col gap-12">
       <SunsetCountdown
-        locationLabel={locationEnv.label}
+        location={locationEnv}
         sunsetIso={sunsetTime.toISOString()}
       />
       <div className="w-full text-center">
@@ -47,6 +48,9 @@ export default async function HomePage() {
           <p>View all sunsets</p>
         </div>
         <div></div>
+      </div>
+      <div>
+        <VideoGallery />
       </div>
     </div>
   );

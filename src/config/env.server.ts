@@ -14,8 +14,10 @@ const envSchema = z.object({
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_ENDPOINT: z.string().optional(),
-  R2_ACCOUNT_ID: z.string().optional(),
+  CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
   R2_BUCKET: z.string().optional(),
+  FAVORITES_WORKER_URL: z.string().min(1, "FAVORITES_WORKER_URL is required"),
+  FAVORITES_API_TOKEN: z.string().min(1, "FAVORITES_API_TOKEN is required"),
   LOCATION: z.string().min(1, "LOCATION is required"),
   LATITUDE: z.coerce
     .number()
