@@ -2,11 +2,15 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AUTH_ROUTES } from "@/constants/auth";
 import { locationEnv } from "@/config/env.server";
+import { FavoritesProvider } from "@/features/favorites/components/FavoritesProvider";
 import SunsetCountdown from "@/features/sunlight/components/SunsetCountdown";
-import ServerVideoGallery from "@/features/videos/components/ServerVideoGallery";
-import { GalleryType } from "@/features/videos/components/VideoGallery";
+import VideoGallery from "@/features/videos/components/VideoGallery";
+import FavoritesGallery from "@/features/videos/components/FavoritesGallery";
 import { getSignedVideos } from "@/features/videos/services/getSignedVideos";
+import { fetchFavorites } from "@/lib/favorites/favoritesApi";
 import { getTimes } from "@/utils/astronomy/solarLunar";
+
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const session = await auth();
@@ -25,30 +29,35 @@ export default async function HomePage() {
     throw new Error("Unable to determine today's sunset time");
   }
 
-  const signedVideos = await getSignedVideos({ pageSize: 5 });
+  const [signedVideos, favoritesResult] = await Promise.all([
+    getSignedVideos({ pageSize: 20 }),
+    fetchFavorites().catch(() => ({ keys: [] as string[] })),
+  ]);
 
   return (
-    <div className="w-full h-full flex flex-col gap-12">
-      <SunsetCountdown
-        location={locationEnv}
-        sunsetIso={sunsetTime.toISOString()}
-      />
-      <div className="w-full text-center">
-        <h1 className="text-3xl">Live View</h1>
-        <div>
-          <p>this is where the live view is</p>
-        </div>
-      </div>
-      <div className="flex flex-col gap-12">
+    <FavoritesProvider initialFavorites={favoritesResult.keys}>
+      <div className="flex h-full w-full flex-col gap-12">
+        <SunsetCountdown
+          location={locationEnv}
+          sunsetIso={sunsetTime.toISOString()}
+        />
         <div className="w-full text-center">
-          <h1 className="text-2xl">Recent Sunsets</h1>
-          <ServerVideoGallery
-            galleryType={GalleryType.Recent}
-            videoCount={5}
-            videos={signedVideos}
-          />
+          <h1 className="text-3xl">Live View</h1>
+          <div>
+            <p>this is where the live view is</p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-12">
+          <div className="w-full text-center">
+            <h1 className="text-2xl">Favorite Sunsets</h1>
+            <FavoritesGallery videos={signedVideos} maxCount={20} />
+          </div>
+          <div className="w-full text-center">
+            <h1 className="text-2xl">Recent Sunsets</h1>
+            <VideoGallery videos={signedVideos.slice(0, 5)} />
+          </div>
         </div>
       </div>
-    </div>
+    </FavoritesProvider>
   );
 }

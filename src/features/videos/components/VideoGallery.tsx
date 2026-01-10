@@ -1,21 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Heart } from "lucide-react";
 import type { SignedVideo } from "@/features/videos/services/getSignedVideos";
+import { useFavorites } from "@/features/favorites/components/FavoritesProvider";
 import {
   getCachedVideoBlob,
   fetchAndCacheVideo,
 } from "@/features/videos/utils/videoBlobCache";
 
-export enum GalleryType {
-  Favorite = "favorite",
-  Recent = "recent",
-}
-
 export type VideoGalleryProps = {
-  galleryType: GalleryType;
-  videoCount: number;
   videos: SignedVideo[];
+  emptyMessage?: string;
 };
 
 const formatDateTime = (iso: string): string => {
@@ -30,15 +26,16 @@ const formatDateTime = (iso: string): string => {
 
 type VideoCardProps = {
   video: SignedVideo;
+  isFavorited: boolean;
+  onToggleFavorite: () => void;
 };
 
-function VideoCard({ video }: VideoCardProps) {
+function VideoCard({ video, isFavorited, onToggleFavorite }: VideoCardProps) {
   const [src, setSrc] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [hasTriggeredCache, setHasTriggeredCache] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Check IndexedDB for cached blob on mount, then set src
   useEffect(() => {
     let cancelled = false;
 
@@ -62,12 +59,10 @@ function VideoCard({ video }: VideoCardProps) {
     };
   }, [video.key, video.signedUrl]);
 
-  // On play, fetch and cache blob in background (non-blocking)
   const handlePlay = () => {
     if (hasTriggeredCache) return;
     setHasTriggeredCache(true);
 
-    // Fetch and cache in background - don't block playback
     void fetchAndCacheVideo(video.key, video.signedUrl).then((blobUrl) => {
       if (blobUrl.startsWith("blob:")) {
         setSrc(blobUrl);
@@ -94,34 +89,49 @@ function VideoCard({ video }: VideoCardProps) {
           <div className="h-full w-full" />
         )}
       </div>
-      <div className="px-3 py-3 text-xs">
-        <div className="text-gray-400">
+      <div className="flex items-center justify-between px-3 py-3">
+        <div className="text-xs text-gray-400">
           {formatDateTime(video.lastModified)}
         </div>
+        <button
+          type="button"
+          onClick={onToggleFavorite}
+          className="rounded p-1 transition-colors hover:bg-slate-800"
+          aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
+        >
+          <Heart
+            size={18}
+            className={
+              isFavorited
+                ? "fill-red-500 text-red-500"
+                : "text-gray-400 hover:text-gray-300"
+            }
+          />
+        </button>
       </div>
     </div>
   );
 }
 
 export default function VideoGallery({
-  galleryType,
-  videoCount,
   videos,
+  emptyMessage = "No videos to display.",
 }: VideoGalleryProps) {
-  const displayVideos = videos.slice(0, videoCount);
-  const emptyStateText =
-    galleryType === GalleryType.Favorite
-      ? "No favorite videos to display."
-      : "No videos to display.";
+  const { isFavorite, toggleFavorite } = useFavorites();
 
-  if (displayVideos.length === 0) {
-    return <div className="text-sm text-gray-400">{emptyStateText}</div>;
+  if (videos.length === 0) {
+    return <div className="text-sm text-gray-400">{emptyMessage}</div>;
   }
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-      {displayVideos.map((video) => (
-        <VideoCard key={video.key} video={video} />
+      {videos.map((video) => (
+        <VideoCard
+          key={video.key}
+          video={video}
+          isFavorited={isFavorite(video.key)}
+          onToggleFavorite={() => toggleFavorite(video.key)}
+        />
       ))}
     </div>
   );
