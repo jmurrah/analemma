@@ -62,7 +62,6 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
     if (element.paused) {
       handlePlay();
       void element.play().catch((error) => {
-        // eslint-disable-next-line no-console
         console.error("Unable to start playback", error);
       });
     } else {

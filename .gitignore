@@ -4,3 +4,7 @@ node_modules/
 out/
 dist/
 .vercel/
+.claude/
+.vscode/
+.act-secrets
+.act-dispatch.json

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SHARED_SECRET_HEADER, USER_EMAIL_HEADER } from "@/constants/headers";
+import { serverEnv } from "@/config/env.server";
 
 const ok = (body: unknown, status = 200) => NextResponse.json(body, { status });
 const err = (message: string, status = 400) =>
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
       endIso,
       speed: speed ?? "",
       outKey: outKey ?? "",
-      cameraId: cameraId ?? "",
+      cameraId: cameraId ?? serverEnv.RING_CAMERA_ID ?? "",
       cameraName: cameraName ?? "",
       clipType: clipType ?? "",
     },

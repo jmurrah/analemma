@@ -6,27 +6,12 @@ on:
     - cron: "0 2 * * *" # 9pm Eastern during Standard Time
   workflow_dispatch:
     inputs:
-      startIso:
-        description: ISO start timestamp
-        required: true
-      endIso:
-        description: ISO end timestamp
-        required: true
       speed:
-        description: Playback speed (e.g., 4)
+        description: Playback speed (default 40x)
         required: false
-        default: "30"
-      outKey:
-        description: Optional explicit R2 object key
-        required: false
+        default: "40"
       cameraId:
-        description: Optional camera id
-        required: false
-      cameraName:
-        description: Optional camera name
-        required: false
-      clipType:
-        description: Optional clip type (daily/custom)
+        description: Optional camera id (uses first camera if not provided)
         required: false
 
 jobs:
@@ -40,13 +25,10 @@ jobs:
       R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       R2_BUCKET: ${{ secrets.R2_BUCKET }}
-      START_ISO: ${{ inputs.startIso }}
-      END_ISO: ${{ inputs.endIso }}
+      LATITUDE: ${{ secrets.LATITUDE }}
+      LONGITUDE: ${{ secrets.LONGITUDE }}
       SPEED: ${{ inputs.speed }}
-      OUT_KEY: ${{ inputs.outKey }}
-      CAMERA_ID: ${{ inputs.cameraId }}
-      CAMERA_NAME: ${{ inputs.cameraName }}
-      CLIP_TYPE: ${{ inputs.clipType }}
+      RING_CAMERA_ID: ${{ inputs.cameraId }}
     steps:
       - uses: actions/checkout@v4
 
@@ -61,9 +43,5 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      - name: Set defaults when scheduled
-        if: github.event_name == 'schedule'
-        run: npx tsx scripts/set-default-window.ts
-
       - name: Run timelapse
-        run: npx tsx scripts/run-timelapse.ts --startIso=${START_ISO} --endIso=${END_ISO} --speed=${SPEED:-30} --outKey=${OUT_KEY:-} --cameraId=${CAMERA_ID:-} --cameraName=${CAMERA_NAME:-} --clipType=${CLIP_TYPE:-}
+        run: npx tsx scripts/run-timelapse.ts --cameraId=$RING_CAMERA_ID

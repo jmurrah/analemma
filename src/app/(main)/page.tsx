@@ -39,18 +39,12 @@ export default async function HomePage() {
 
   return (
     <FavoritesProvider initialFavorites={favoritesResult.keys}>
-      <div className="flex h-full w-full flex-col gap-12">
+      <div className="flex h-full w-full flex-col gap-10">
         <SunsetCountdown
           location={locationEnv}
           sunsetIso={sunsetTime.toISOString()}
         />
-        <div className="w-full text-center">
-          <h1 className="text-3xl">Live View</h1>
-          <div>
-            <p>this is where the live view is</p>
-          </div>
-        </div>
-        <div className="flex flex-col gap-12">
+        <div className="flex flex-col gap-10">
           <div className="w-full text-center">
             <h1 className="text-2xl mb-3">Favorite Sunsets</h1>
             <FavoritesGallery videos={signedVideos} maxCount={20} />

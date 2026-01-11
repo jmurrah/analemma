@@ -11,6 +11,7 @@ const envSchema = z.object({
   NEXTAUTH_URL: z.string().min(1, "NEXTAUTH_URL is required"),
   ALLOWED_EMAILS: z.string().min(1, "ALLOWED_EMAILS is required"),
   RING_REFRESH_TOKEN: z.string().optional(),
+  RING_CAMERA_ID: z.string().optional(),
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_ENDPOINT: z.string().optional(),

@@ -1,6 +1,5 @@
 import localFont from "next/font/local";
 import "./globals.css";
-import "react-loading-skeleton/dist/skeleton.css";
 import LayoutContainer from "@/components/common/LayoutContainer";
 
 const barlow = localFont({

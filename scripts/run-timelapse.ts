@@ -10,16 +10,16 @@ import {
 } from "@/lib/ring/helpers";
 import { pollDownloadJob } from "@/lib/ring/downloadClip";
 import { getRing } from "@/lib/ring/client";
-import { MONTH_NAMES } from "@/constants/date";
+import { getTimes } from "@/utils/astronomy/solarLunar";
+import { CAMERA_LATITUDE, CAMERA_LONGITUDE } from "@/constants/location";
+
+const MINUTES_BEFORE_SUNSET = 20;
+const MINUTES_AFTER_SUNSET = 10;
+const DEFAULT_SPEED = 40;
 
 type Inputs = {
-  startIso: string;
-  endIso: string;
   speed: number;
   cameraId?: string;
-  cameraName?: string;
-  outKey?: string;
-  clipType?: string;
 };
 
 function parseArgs(): Inputs {
@@ -31,30 +31,22 @@ function parseArgs(): Inputs {
     }
   }
 
-  const startIso = argMap.get("startIso") ?? process.env.START_ISO;
-  const endIso = argMap.get("endIso") ?? process.env.END_ISO;
-
-  const speedRaw = argMap.get("speed") ?? process.env.SPEED ?? "30";
+  const speedRaw =
+    argMap.get("speed") ?? process.env.SPEED ?? String(DEFAULT_SPEED);
   const speed = Number(speedRaw);
   if (!Number.isFinite(speed) || speed <= 0) {
     throw new Error("speed must be a positive number");
   }
 
   return {
-    startIso: startIso ?? "",
-    endIso: endIso ?? "",
     speed,
-    cameraId: argMap.get("cameraId") ?? process.env.CAMERA_ID,
-    cameraName: argMap.get("cameraName") ?? process.env.CAMERA_NAME,
-    outKey: argMap.get("outKey") ?? process.env.OUT_KEY,
-    clipType: argMap.get("clipType") ?? process.env.CLIP_TYPE,
+    cameraId: argMap.get("cameraId") ?? process.env.RING_CAMERA_ID,
   };
 }
 
 async function selectCamera(
   ring: RingContext,
   cameraId?: string,
-  cameraName?: string,
 ): Promise<CameraRef> {
   const cameras = await ring.ringApi.getCameras();
   if (!cameras.length) {
@@ -63,38 +55,52 @@ async function selectCamera(
   if (cameraId) {
     const found = cameras.find((cam) => String(cam.id) === String(cameraId));
     if (found) {
-      return { id: String(found.id), name: cameraName ?? found.name };
+      return { id: String(found.id), name: found.name };
     }
   }
   const first = cameras[0];
-  return { id: String(first.id), name: cameraName ?? first.name };
+  return { id: String(first.id), name: first.name };
 }
 
-function deriveKey(
-  start: Date,
-  end: Date,
-  clipType: string | undefined,
-  speed: number,
-  providedKey?: string,
-): string {
-  if (providedKey) {
-    return providedKey;
+/**
+ * Gets the most recent sunset time.
+ * If current time is before today's sunset, returns yesterday's sunset.
+ * If current time is after today's sunset, returns today's sunset.
+ */
+function getMostRecentSunset(now: Date, lat: number, lng: number): Date {
+  const todayTimes = getTimes(now, lat, lng);
+  const todaySunset = todayTimes.sunset as Date;
+
+  if (now >= todaySunset) {
+    return todaySunset;
   }
 
-  const year = start.getUTCFullYear();
-  const monthName = MONTH_NAMES[start.getUTCMonth()];
-  const datePart = [
-    start.getUTCFullYear(),
-    String(start.getUTCMonth() + 1).padStart(2, "0"),
-    String(start.getUTCDate()).padStart(2, "0"),
-  ].join("");
-  const durationMs = end.getTime() - start.getTime();
-  const kind =
-    clipType || (durationMs >= 20 * 60 * 60 * 1000 ? "daily" : "custom");
-  const speedTag = `${speed}x`;
-  const filename = `ring-${kind}-${datePart}-${speedTag}.mp4`;
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayTimes = getTimes(yesterday, lat, lng);
+  return yesterdayTimes.sunset as Date;
+}
 
-  return `${year}/${monthName}/${filename}`;
+function formatDateYYYYMMDD(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+function calculateSunsetWindow(): {
+  start: Date;
+  end: Date;
+  outKey: string;
+} {
+  const now = new Date();
+  const sunset = getMostRecentSunset(now, CAMERA_LATITUDE, CAMERA_LONGITUDE);
+
+  const start = new Date(sunset.getTime() - MINUTES_BEFORE_SUNSET * 60 * 1000);
+  const end = new Date(sunset.getTime() + MINUTES_AFTER_SUNSET * 60 * 1000);
+  const outKey = `${formatDateYYYYMMDD(sunset)}_sunset.mp4`;
+
+  return { start, end, outKey };
 }
 
 function spawnFfmpeg(inputUrl: string, speed: number): Readable {
@@ -110,7 +116,7 @@ function spawnFfmpeg(inputUrl: string, speed: number): Readable {
     "-crf",
     "23",
     "-movflags",
-    "+faststart",
+    "frag_keyframe+empty_moov",
     "-an",
     "-f",
     "mp4",
@@ -204,50 +210,24 @@ async function ensureResultUrl(
 
 async function main() {
   const inputs = parseArgs();
-  const hasStart = inputs.startIso && inputs.startIso.length > 0;
-  const hasEnd = inputs.endIso && inputs.endIso.length > 0;
+  const { start, end, outKey } = calculateSunsetWindow();
 
-  let start: Date;
-  let end: Date;
-
-  if (hasStart && hasEnd) {
-    start = new Date(inputs.startIso);
-    end = new Date(inputs.endIso);
-
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      throw new Error("Invalid startIso or endIso");
-    }
-  } else if (!hasStart && !hasEnd) {
-    const endDefault = new Date();
-    const startDefault = new Date(endDefault.getTime() - 30 * 60 * 1000);
-
-    start = startDefault;
-    end = endDefault;
-  } else {
-    throw new Error("Provide both startIso and endIso or neither");
-  }
-
-  console.log("Starting timelapse job", {
+  console.log("Sunset timelapse job", {
     start: start.toISOString(),
     end: end.toISOString(),
     speed: inputs.speed,
+    outKey,
+    location: { lat: CAMERA_LATITUDE, lng: CAMERA_LONGITUDE },
   });
 
   const ring = await getRing();
-  const camera = await selectCamera(ring, inputs.cameraId, inputs.cameraName);
+  const camera = await selectCamera(ring, inputs.cameraId);
   console.log("Using camera", camera);
 
   const job = await ensureResultUrl(ring, camera, start, end);
   console.log("Download job ready", { clip_id: job.clip_id });
 
-  const key = deriveKey(
-    start,
-    end,
-    inputs.clipType,
-    inputs.speed,
-    inputs.outKey,
-  );
-  console.log("Uploading to R2 key", key);
+  console.log("Uploading to R2 key", outKey);
 
   if (!job.result_url) {
     throw new Error("Download job did not return a result_url");
@@ -255,8 +235,8 @@ async function main() {
 
   const ffmpegStream = spawnFfmpeg(job.result_url, inputs.speed);
 
-  await uploadStreamToR2(ffmpegStream, key);
-  console.log("Upload complete", { key });
+  await uploadStreamToR2(ffmpegStream, outKey);
+  console.log("Upload complete", { key: outKey });
 }
 
 main().catch((error) => {

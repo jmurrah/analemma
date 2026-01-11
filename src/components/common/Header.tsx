@@ -26,7 +26,7 @@ export default async function Header() {
           </Link>
         </div>
         {session && (
-          <div className="flex items-center justify-center gap-8 text-lg">
+          <div className="flex items-center justify-center gap-10 text-lg">
             <Link href="/" className="link-underline">
               Home
             </Link>

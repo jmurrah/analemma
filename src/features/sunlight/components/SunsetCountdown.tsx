@@ -137,23 +137,21 @@ export default function SunsetCountdown({
   );
 
   return (
-    <>
-      <div className="w-full flex flex-col gap-2 items-center">
-        <p className="text-xl">
-          Sunset at {sunsetLabel} on {sunsetDateLabel}.
-        </p>
-        <div className="w-full flex justify-center items-center gap-2 text-2xl bg-[var(--accent)] p-2 rounded-lg">
-          <Clock size={24} aria-hidden className="text-[var(--bg)]" />
-          <div className="text-center">
-            <p
-              className="text-[var(--bg)] font-semibold"
-              suppressHydrationWarning
-            >
-              {countdownCompact} until next sunset.
-            </p>
-          </div>
+    <div className="w-full flex flex-col gap-2 items-center">
+      <p className="text-xl">
+        Sunset at {sunsetLabel} on {sunsetDateLabel}.
+      </p>
+      <div className="w-full flex justify-center items-center gap-2 text-2xl bg-[var(--accent)] p-2 rounded-lg">
+        <Clock size={24} aria-hidden className="text-[var(--bg)]" />
+        <div className="text-center">
+          <p
+            className="text-[var(--bg)] font-semibold"
+            suppressHydrationWarning
+          >
+            {countdownCompact} until next sunset.
+          </p>
         </div>
       </div>
-    </>
+    </div>
   );
 }
