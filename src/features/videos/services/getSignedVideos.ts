@@ -11,18 +11,17 @@ export type SignedVideo = R2VideoObject & {
 };
 
 export type GetSignedVideosOptions = {
-  prefix?: string;
   pageSize?: number;
 };
 
 const URL_EXPIRY_SECONDS = 86_400; // 24 hours
-const LIST_REVALIDATE_SECONDS = 300; // 5 minutes - short to pick up new videos
+const LIST_REVALIDATE_SECONDS = 60; // 1 minute - check for new videos frequently
 const URL_REVALIDATE_SECONDS = 86_400; // 24 hours
 
-// Cache the video list with 5 min TTL to discover new videos quickly
+// Cache the video list with 1 min TTL to discover new videos quickly
 const getCachedVideoList = unstable_cache(
-  async (prefix?: string, pageSize?: number) => {
-    const result = await listR2Objects({ prefix, pageSize });
+  async (pageSize?: number) => {
+    const result = await listR2Objects({ pageSize });
     return result.items;
   },
   ["video-list"],
@@ -46,7 +45,7 @@ const getCachedSignedUrl = (key: string) =>
 export const getSignedVideos = async (
   options: GetSignedVideosOptions = {},
 ): Promise<SignedVideo[]> => {
-  const items = await getCachedVideoList(options.prefix, options.pageSize);
+  const items = await getCachedVideoList(options.pageSize);
 
   const limitedItems =
     typeof options.pageSize === "number" && options.pageSize > 0

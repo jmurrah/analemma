@@ -3,7 +3,6 @@
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import type { SignedVideo } from "@/features/videos/services/getSignedVideos";
-import { parseQueryToYYYYMMDD } from "@/features/videos/utils/parseDateQuery";
 import VideoGallery from "@/features/videos/components/VideoGallery";
 import FavoritesGallery from "@/features/videos/components/FavoritesGallery";
 
@@ -11,40 +10,70 @@ export type SunsetsPageContentProps = {
   videos: SignedVideo[];
 };
 
+// Month names for search matching
+const MONTH_NAMES = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+];
+
 export function SunsetsPageContent({ videos }: SunsetsPageContentProps) {
   const [query, setQuery] = useState("");
 
-  // Extract just the filename from keys (handles folder prefixes like "2025/January/...")
-  const getFilename = (key: string) => {
-    const lastSlash = key.lastIndexOf("/");
-    return lastSlash >= 0 ? key.slice(lastSlash + 1) : key;
-  };
-
-  const filenames = useMemo(
-    () => videos.map((v) => getFilename(v.key)),
-    [videos],
-  );
-
-  const { filteredVideos, parseError } = useMemo(() => {
-    const trimmedQuery = query.trim();
+  const filteredVideos = useMemo(() => {
+    const trimmedQuery = query.trim().toLowerCase();
 
     if (!trimmedQuery) {
-      return { filteredVideos: videos, parseError: false };
+      return videos;
     }
 
-    const datePrefix = parseQueryToYYYYMMDD(trimmedQuery, filenames);
+    // Normalize query: remove slashes, dashes, commas, ordinal suffixes
+    const normalizedQuery = trimmedQuery
+      .replace(/[\s,\-\/]+/g, "")
+      .replace(/(\d+)(st|nd|rd|th)/g, "$1");
 
-    if (!datePrefix) {
-      return { filteredVideos: [], parseError: true };
-    }
+    return videos.filter((video) => {
+      // Video keys are just filenames like "20260110_sunset.mp4"
+      const fileDate = video.key.slice(0, 8); // YYYYMMDD
 
-    // Match against the filename portion of the key
-    const filtered = videos.filter((video) =>
-      getFilename(video.key).startsWith(datePrefix),
-    );
+      if (fileDate.length !== 8 || !/^\d{8}$/.test(fileDate)) {
+        return false;
+      }
 
-    return { filteredVideos: filtered, parseError: false };
-  }, [query, videos, filenames]);
+      const year = fileDate.slice(0, 4);
+      const month = fileDate.slice(4, 6);
+      const day = fileDate.slice(6, 8);
+      const monthIndex = Number.parseInt(month, 10) - 1;
+      const monthName = MONTH_NAMES[monthIndex] || "";
+
+      // Build a searchable string containing all representations of this date
+      const searchableString = [
+        fileDate, // 20260110
+        year, // 2026
+        month, // 01
+        day, // 10
+        monthName, // january
+        `${month}${day}${year}`, // 01102026 (MM/DD/YYYY without slashes)
+        `${year}${month}${day}`, // 20260110 (YYYY-MM-DD without slashes)
+        `${month}${day}`, // 0110 (MM/DD)
+        `${day}${month}`, // 1001 (DD/MM)
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      // Simple contains check
+      return searchableString.includes(normalizedQuery);
+    });
+  }, [query, videos]);
 
   const showingFiltered = query.trim().length > 0;
 
@@ -58,19 +87,11 @@ export function SunsetsPageContent({ videos }: SunsetsPageContentProps) {
         <div className="mx-auto mt-4 w-full max-w-md">
           <Input
             type="text"
-            placeholder="Search by date (e.g., 20250115, 2025-01-15, Jan 15)"
+            placeholder="Search by date (e.g., 10, ja, jan 18th, 2026)"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="text-center"
           />
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Try: 20250115, 2025-01-15, 1/15/2025, January 15th
-          </p>
-          {parseError && (
-            <p className="mt-2 text-sm text-destructive">
-              Could not parse date. Try 20250115 or Jan 15
-            </p>
-          )}
         </div>
       </div>
       <div className="flex flex-col gap-10">

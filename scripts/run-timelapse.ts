@@ -103,7 +103,10 @@ function calculateSunsetWindow(): {
   return { start, end, outKey };
 }
 
-function spawnFfmpeg(inputUrl: string, speed: number): Readable {
+function spawnFfmpeg(
+  inputUrl: string,
+  speed: number,
+): { stream: Readable; waitForExit: () => Promise<void> } {
   const args = [
     "-i",
     inputUrl,
@@ -131,13 +134,18 @@ function spawnFfmpeg(inputUrl: string, speed: number): Readable {
     throw new Error("ffmpeg did not produce a stdout stream");
   }
 
-  ffmpeg.on("exit", (code) => {
-    if (code !== 0) {
-      console.error(`ffmpeg exited with code ${code}`);
-    }
-  });
+  const waitForExit = () =>
+    new Promise<void>((resolve, reject) => {
+      ffmpeg.on("exit", (code) => {
+        if (code !== 0) {
+          reject(new Error(`ffmpeg exited with code ${code}`));
+        } else {
+          resolve();
+        }
+      });
+    });
 
-  return ffmpeg.stdout;
+  return { stream: ffmpeg.stdout, waitForExit };
 }
 
 function createR2Client() {
@@ -233,10 +241,13 @@ async function main() {
     throw new Error("Download job did not return a result_url");
   }
 
-  const ffmpegStream = spawnFfmpeg(job.result_url, inputs.speed);
+  const { stream, waitForExit } = spawnFfmpeg(job.result_url, inputs.speed);
 
-  await uploadStreamToR2(ffmpegStream, outKey);
+  await uploadStreamToR2(stream, outKey);
   console.log("Upload complete", { key: outKey });
+
+  await waitForExit();
+  console.log("ffmpeg process finished");
 }
 
 main().catch((error) => {

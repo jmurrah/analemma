@@ -14,10 +14,13 @@ export const isValidVideoKey = (key: string): boolean => {
   }
 
   const trimmed = key.trim();
+  // Reject keys with path separators or traversal attempts
+  // We only allow root-level filenames like "20260110_sunset.mp4"
   if (
     trimmed.startsWith("/") ||
     trimmed.includes("..") ||
-    trimmed.includes("\\")
+    trimmed.includes("\\") ||
+    trimmed.includes("/")
   ) {
     return false;
   }

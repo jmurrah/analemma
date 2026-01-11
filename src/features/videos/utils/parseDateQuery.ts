@@ -60,17 +60,26 @@ function inferYearFromFilenames(
 }
 
 /**
- * Parses a user query into a YYYYMMDD date prefix for filtering video filenames.
+ * Parses a user query into a date pattern for filtering video filenames.
  *
  * Supported formats:
+ * - Just year: 2026 → "2026" (matches all of 2026)
+ * - Just month: jan → "01" (matches all January videos across all years)
+ * - Year + month: 2026 jan, jan 2026, 2026-01 → "202601"
  * - Exact YYYYMMDD (8 digits)
  * - ISO-ish: YYYY-MM-DD or YYYY/MM/DD
  * - US numeric: M/D/YYYY or MM/DD/YYYY (with - or / separator)
  * - Month name + day: January 15, Jan 15th, 15 Jan, optionally with year
  *
+ * Returns a pattern that can be:
+ * - 2 digits (MM): month only, matches across all years
+ * - 4 digits (YYYY): year only
+ * - 6 digits (YYYYMM): year + month
+ * - 8 digits (YYYYMMDD): full date
+ *
  * @param query - The user's search query
  * @param filenames - Array of filenames to infer year from when not provided
- * @returns YYYYMMDD string if parseable, null otherwise
+ * @returns Date pattern string if parseable, null otherwise
  */
 export function parseQueryToYYYYMMDD(
   query: string,
@@ -81,31 +90,85 @@ export function parseQueryToYYYYMMDD(
     return null;
   }
 
-  // 1. Exact YYYYMMDD (8 digits)
+  // 1. Just a 4-digit year
+  if (/^\d{4}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // 2. Just a 1 or 2-digit month
+  if (/^\d{1,2}$/.test(trimmed)) {
+    const monthNum = Number.parseInt(trimmed, 10);
+    if (monthNum >= 1 && monthNum <= 12) {
+      return padTwo(monthNum); // Return "01" to "12"
+    }
+  }
+
+  // 3. Exact YYYYMMDD (8 digits)
   if (/^\d{8}$/.test(trimmed)) {
     return trimmed;
   }
 
-  // 2. ISO-ish: YYYY-MM-DD or YYYY/MM/DD
+  // 4. ISO-ish: YYYY-MM-DD or YYYY/MM/DD
   const isoMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
   if (isoMatch) {
     const [, year, month, day] = isoMatch;
     return `${year}${padTwo(month)}${padTwo(day)}`;
   }
 
-  // 3. US numeric: M/D/YYYY or MM/DD/YYYY (with - or / separator)
+  // 5. Partial ISO for year+month: YYYY-MM or YYYY/MM
+  const isoMonthMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})$/);
+  if (isoMonthMatch) {
+    const [, year, month] = isoMonthMatch;
+    return `${year}${padTwo(month)}`;
+  }
+
+  // 6. US numeric with full date: M/D/YYYY or MM/DD/YYYY (with - or / separator)
   const usMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (usMatch) {
     const [, month, day, year] = usMatch;
     return `${year}${padTwo(month)}${padTwo(day)}`;
   }
 
-  // 4. Month name + day (with optional year)
+  // 7. US numeric month/day without year: M/D or MM/DD - return MMDD to match across years
+  const usMonthDayMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})$/);
+  if (usMonthDayMatch) {
+    const [, month, day] = usMonthDayMatch;
+    const monthNum = Number.parseInt(month, 10);
+    const dayNum = Number.parseInt(day, 10);
+    if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
+      return `${padTwo(month)}${padTwo(day)}`; // Return MMDD to match across years
+    }
+  }
+
+  // 8. Month name patterns
   // Normalize: lowercase, remove commas, remove ordinal suffixes
   const normalized = trimmed
     .toLowerCase()
     .replace(/,/g, "")
     .replace(/(\d+)(st|nd|rd|th)/g, "$1");
+
+  // Pattern: Just a month name (e.g., "jan", "january") - return month only to match all years
+  const justMonthMatch = normalized.match(/^([a-z]+)$/);
+  if (justMonthMatch) {
+    const [, monthName] = justMonthMatch;
+    const month = MONTH_MAP[monthName];
+    if (month) {
+      return month; // Return just "01" to match all January videos
+    }
+  }
+
+  // Pattern: Year + month (e.g., "2026 jan", "jan 2026")
+  const yearMonthMatch = normalized.match(
+    /^(?:(\d{4})\s+([a-z]+)|([a-z]+)\s+(\d{4}))$/,
+  );
+  if (yearMonthMatch) {
+    const year = yearMonthMatch[1] || yearMonthMatch[4];
+    const monthName = yearMonthMatch[2] || yearMonthMatch[3];
+    const month = MONTH_MAP[monthName];
+    if (month && year) {
+      return `${year}${month}`;
+    }
+  }
 
   // Pattern: "January 15 2025" or "January 15" or "Jan 15th 2025"
   const monthFirstMatch = normalized.match(
@@ -116,12 +179,17 @@ export function parseQueryToYYYYMMDD(
     const month = MONTH_MAP[monthName];
     if (month) {
       const day = padTwo(dayStr);
-      const year = yearStr ?? inferYearFromFilenames(month, day, filenames);
+      if (yearStr) {
+        return `${yearStr}${month}${day}`;
+      }
+      // No year provided, try to infer from existing videos
+      const year = inferYearFromFilenames(month, day, filenames);
       if (year) {
         return `${year}${month}${day}`;
       }
+      // Can't infer year, return MMDD to match across all years
+      return `${month}${day}`;
     }
-    return null;
   }
 
   // Pattern: "15 January 2025" or "15 Jan" or "15th Jan 2025"
@@ -133,12 +201,17 @@ export function parseQueryToYYYYMMDD(
     const month = MONTH_MAP[monthName];
     if (month) {
       const day = padTwo(dayStr);
-      const year = yearStr ?? inferYearFromFilenames(month, day, filenames);
+      if (yearStr) {
+        return `${yearStr}${month}${day}`;
+      }
+      // No year provided, try to infer from existing videos
+      const year = inferYearFromFilenames(month, day, filenames);
       if (year) {
         return `${year}${month}${day}`;
       }
+      // Can't infer year, return MMDD to match across all years
+      return `${month}${day}`;
     }
-    return null;
   }
 
   return null;
