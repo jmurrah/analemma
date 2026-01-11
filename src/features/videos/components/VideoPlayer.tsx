@@ -60,12 +60,13 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
     if (!element) return;
 
     if (element.paused) {
-      element.play();
       handlePlay();
-      setIsPlaying(true);
+      void element.play().catch((error) => {
+        // eslint-disable-next-line no-console
+        console.error("Unable to start playback", error);
+      });
     } else {
       element.pause();
-      setIsPlaying(false);
     }
   };
 
@@ -119,7 +120,6 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
           onTimeUpdate={handleTimeUpdate}
           onPlay={() => {
             setIsPlaying(true);
-            handlePlay();
           }}
           onPause={() => setIsPlaying(false)}
           preload="metadata"

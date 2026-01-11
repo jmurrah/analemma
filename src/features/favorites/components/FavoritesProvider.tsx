@@ -1,8 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useMemo, useState } from "react";
 import {
-  hasClientFavorites,
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  getClientFavorites,
   initializeClientFavorites,
   setClientFavorites,
 } from "@/features/favorites/stores/favoritesStore";
@@ -26,12 +32,20 @@ export function FavoritesProvider({
   initialFavorites,
   children,
 }: FavoritesProviderProps) {
-  const [favorites, setFavorites] = useState<Set<string>>(() => {
-    if (hasClientFavorites()) {
-      return initializeClientFavorites([]);
+  // Always use initialFavorites on first render to ensure server/client match
+  const [favorites, setFavorites] = useState<Set<string>>(
+    () => new Set(initialFavorites),
+  );
+
+  // After hydration, sync with client-side cache if it exists
+  useEffect(() => {
+    const cached = getClientFavorites();
+    if (cached) {
+      setFavorites(cached);
+    } else {
+      initializeClientFavorites(initialFavorites);
     }
-    return initializeClientFavorites(initialFavorites);
-  });
+  }, [initialFavorites]);
 
   const isFavorite = useCallback(
     (key: string) => favorites.has(key),
