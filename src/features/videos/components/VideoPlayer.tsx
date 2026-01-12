@@ -29,17 +29,30 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
     let cancelled = false;
 
     const initializeSrc = async () => {
-      const cachedUrl = await getCachedVideoBlob(video.key);
-      if (cancelled) return;
+      try {
+        const cachedUrl = await getCachedVideoBlob(video.key);
+        if (cancelled) return;
 
-      const resolved = cachedUrl || video.signedUrl;
-      // Add #t=0.001 fragment to hint Safari to load first frame
-      const srcWithFragment = resolved.includes("#")
-        ? resolved
-        : `${resolved}#t=0.001`;
-      setSrc(srcWithFragment);
-      setIsReady(true);
-      onSourceReady?.(resolved);
+        const resolved = cachedUrl || video.signedUrl;
+        // Add #t=0.001 fragment to hint Safari to load first frame
+        const srcWithFragment = resolved.includes("#")
+          ? resolved
+          : `${resolved}#t=0.001`;
+        setSrc(srcWithFragment);
+        setIsReady(true);
+        onSourceReady?.(resolved);
+      } catch (error) {
+        console.error("Failed to initialize video src:", error);
+        // Fallback to signed URL on error
+        if (!cancelled) {
+          const fallbackSrc = video.signedUrl.includes("#")
+            ? video.signedUrl
+            : `${video.signedUrl}#t=0.001`;
+          setSrc(fallbackSrc);
+          setIsReady(true);
+          onSourceReady?.(video.signedUrl);
+        }
+      }
     };
 
     void initializeSrc();
@@ -161,6 +174,16 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
             setIsPlaying(true);
           }}
           onPause={() => setIsPlaying(false)}
+          onError={(e) => {
+            console.error("Video error:", e);
+            // Try to recover by using signed URL
+            if (src.startsWith("blob:")) {
+              const fallbackSrc = video.signedUrl.includes("#")
+                ? video.signedUrl
+                : `${video.signedUrl}#t=0.001`;
+              setSrc(fallbackSrc);
+            }
+          }}
           preload="metadata"
           playsInline
         />
@@ -172,6 +195,9 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
         className="absolute inset-x-0 top-0 cursor-pointer"
         style={{ bottom: "56px" }}
         onClick={togglePlayback}
+        role="button"
+        tabIndex={0}
+        aria-label={isPlaying ? "Pause video" : "Play video"}
       />
 
       {/* Center play button */}
@@ -180,15 +206,16 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
           className="absolute inset-0 flex items-center justify-center pointer-events-none"
           style={{ zIndex: 20 }}
         >
-          <button
-            type="button"
+          <div
             onClick={togglePlayback}
             className="pointer-events-auto flex items-center justify-center rounded-full p-4 text-[var(--text)] hover:text-[var(--primary)] cursor-pointer"
             style={{ backgroundColor: "var(--surface2)" }}
+            role="button"
+            tabIndex={0}
             aria-label="Play video"
           >
             <Play size={28} />
-          </button>
+          </div>
         </div>
       )}
 
@@ -201,18 +228,19 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
           zIndex: 20,
         }}
       >
-        <button
-          type="button"
+        <div
           onClick={togglePlayback}
           className="flex shrink-0 items-center justify-center rounded-full text-[var(--text)] hover:text-[var(--primary)] cursor-pointer"
           style={{
             width: "40px",
             height: "40px",
           }}
+          role="button"
+          tabIndex={0}
           aria-label={isPlaying ? "Pause video" : "Play video"}
         >
           {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-        </button>
+        </div>
         <input
           type="range"
           min={0}
@@ -223,18 +251,19 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
           className="w-full cursor-pointer"
           style={{ accentColor: "var(--primary)" }}
         />
-        <button
-          type="button"
+        <div
           onClick={handleFullscreen}
           className="flex shrink-0 items-center justify-center rounded-full text-[var(--text)] hover:text-[var(--primary)] cursor-pointer"
           style={{
             width: "40px",
             height: "40px",
           }}
+          role="button"
+          tabIndex={0}
           aria-label="Toggle fullscreen"
         >
           <Maximize2 size={18} />
-        </button>
+        </div>
       </div>
     </div>
   );
