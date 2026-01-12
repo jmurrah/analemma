@@ -1,13 +1,10 @@
-const DB_NAME = "ring-timelapse-cache";
-const STORE_NAME = "video-blobs";
-const DB_VERSION = 1;
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-
-type CachedEntry = {
-  key: string;
-  blob: Blob;
-  cachedAt: number;
-};
+import {
+  DB_NAME,
+  STORE_NAME,
+  DB_VERSION,
+  CACHE_TTL_MS,
+} from "@/constants/cache";
+import type { CachedEntry } from "@/types/cache";
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 

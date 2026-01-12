@@ -1,10 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { SHARED_SECRET_HEADER, USER_EMAIL_HEADER } from "@/constants/headers";
 import { serverEnv } from "@/config/env.server";
-
-const ok = (body: unknown, status = 200) => NextResponse.json(body, { status });
-const err = (message: string, status = 400) =>
-  NextResponse.json({ error: message }, { status });
+import { ok, err } from "@/lib/api/responseHelpers";
 
 export async function POST(req: NextRequest) {
   const sharedSecret = req.headers.get(SHARED_SECRET_HEADER);

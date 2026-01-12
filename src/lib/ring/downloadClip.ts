@@ -13,8 +13,7 @@ import {
   DownloadPayload,
   RingContext,
 } from "@/types/infra/ring";
-
-type HttpMethod = "GET" | "POST" | "PUT";
+import type { HttpMethod } from "@/types/http";
 
 export async function accountRequest<T>(options: {
   ring: RingContext;

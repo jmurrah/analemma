@@ -1,16 +1,12 @@
-import { NextResponse } from "next/server";
 import {
   ensureAuthorizedUser,
   toggleFavorite,
 } from "@/lib/favorites/favoritesApi";
 import { isValidVideoKey } from "@/features/videos/utils/validateVideoKey";
 import type { ToggleFavoriteRequest } from "@/types/api/favorites";
+import { ok, err } from "@/lib/api/responseHelpers";
 
 export const dynamic = "force-dynamic";
-
-const ok = (body: unknown, status = 200) => NextResponse.json(body, { status });
-const err = (message: string, status = 400) =>
-  NextResponse.json({ error: message }, { status });
 
 export async function POST(request: Request) {
   try {
@@ -22,7 +18,8 @@ export async function POST(request: Request) {
   let body: ToggleFavoriteRequest | null = null;
   try {
     body = (await request.json()) as ToggleFavoriteRequest;
-  } catch {
+  } catch (error) {
+    console.error("Failed to parse request body:", error);
     return err("invalid body", 400);
   }
 
