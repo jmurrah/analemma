@@ -2,7 +2,6 @@ name: ring-timelapse
 
 on:
   schedule:
-    - cron: "0 0 * * *" # 8pm Eastern during DST
     - cron: "0 1 * * *" # 8pm Eastern during Standard Time
   workflow_dispatch:
 
