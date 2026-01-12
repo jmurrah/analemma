@@ -1,6 +1,5 @@
 "use client";
 
-import { Clock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { APP_TIME_ZONE, TIME_LOCALE } from "@/constants/time";
 import type { LocationEnv } from "@/types/domain/location";
@@ -137,21 +136,16 @@ export default function SunsetCountdown({
   );
 
   return (
-    <div className="w-full flex flex-col gap-2 items-center">
-      <p className="text-xl">
-        Sunset at {sunsetLabel} on {sunsetDateLabel}.
+    <div className="w-full border-[var(--accent)] bg-[var(--surface)] px-4 py-1 border-t-4 text-center">
+      <p className="text-[var(--text-muted)]">
+        Sunset at {sunsetLabel} on {sunsetDateLabel}
       </p>
-      <div className="w-full flex justify-center items-center gap-2 text-2xl bg-[var(--accent)] p-2 rounded-lg">
-        <Clock size={24} aria-hidden className="text-[var(--bg)]" />
-        <div className="text-center">
-          <p
-            className="text-[var(--bg)] font-semibold"
-            suppressHydrationWarning
-          >
-            {countdownCompact} until next sunset.
-          </p>
-        </div>
-      </div>
+      <p
+        className="text-3xl font-semibold tracking-tight tabular-nums"
+        suppressHydrationWarning
+      >
+        {countdownCompact}
+      </p>
     </div>
   );
 }

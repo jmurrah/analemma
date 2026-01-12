@@ -7,6 +7,7 @@ import {
   getCachedVideoBlob,
   fetchAndCacheVideo,
 } from "@/features/videos/utils/videoBlobCache";
+import { generatePosterFromVideo } from "@/features/videos/utils/generatePoster";
 
 type VideoPlayerProps = {
   video: SignedVideo;
@@ -20,6 +21,8 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [posterImage, setPosterImage] = useState<string | null>(null);
+  const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -43,6 +46,47 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
     };
   }, [onSourceReady, video.key, video.signedUrl]);
 
+  // Generate poster image when we have a blob URL
+  useEffect(() => {
+    if (!src || !src.startsWith("blob:")) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const generatePoster = async () => {
+      try {
+        const response = await fetch(src);
+        const blob = await response.blob();
+        if (cancelled) return;
+
+        const poster = await generatePosterFromVideo(blob);
+        if (cancelled) return;
+
+        if (poster) {
+          setPosterImage(poster);
+        }
+      } catch (error) {
+        console.error("Failed to generate poster:", error);
+      }
+    };
+
+    void generatePoster();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
+
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (src?.startsWith("blob:")) {
+        URL.revokeObjectURL(src);
+      }
+    };
+  }, [src]);
+
   const handlePlay = () => {
     if (hasTriggeredCache) return;
     setHasTriggeredCache(true);
@@ -60,10 +104,17 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
     if (!element) return;
 
     if (element.paused) {
-      handlePlay();
-      void element.play().catch((error) => {
-        console.error("Unable to start playback", error);
-      });
+      // Check if we need to fetch the cached version
+      if (!hasTriggeredCache) {
+        // First play - trigger cache and set flag to auto-play when ready
+        setShouldAutoPlay(true);
+        handlePlay();
+      } else {
+        // Source is ready, play immediately
+        void element.play().catch((error) => {
+          console.error("Unable to start playback", error);
+        });
+      }
     } else {
       element.pause();
     }
@@ -73,6 +124,19 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
     const element = videoRef.current;
     if (!element) return;
     setDuration(element.duration || 0);
+  };
+
+  const handleCanPlay = () => {
+    const element = videoRef.current;
+    if (!element) return;
+
+    // If we set the flag to auto-play after loading, do it now
+    if (shouldAutoPlay) {
+      setShouldAutoPlay(false);
+      void element.play().catch((error) => {
+        console.error("Unable to start playback", error);
+      });
+    }
   };
 
   const handleTimeUpdate = () => {
@@ -115,13 +179,16 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
           role="button"
           aria-label={isPlaying ? "Pause video" : "Play video"}
           src={src}
+          poster={posterImage || undefined}
           onLoadedMetadata={handleLoadedMetadata}
+          onCanPlay={handleCanPlay}
           onTimeUpdate={handleTimeUpdate}
           onPlay={() => {
             setIsPlaying(true);
           }}
           onPause={() => setIsPlaying(false)}
           preload="metadata"
+          playsInline
           onClick={togglePlayback}
         />
       ) : (

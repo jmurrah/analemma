@@ -11,22 +11,6 @@ export type SunsetsPageContentProps = {
   videos: SignedVideo[];
 };
 
-// Month names for search matching
-const MONTH_NAMES = [
-  "january",
-  "february",
-  "march",
-  "april",
-  "may",
-  "june",
-  "july",
-  "august",
-  "september",
-  "october",
-  "november",
-  "december",
-];
-
 export function SunsetsPageContent({ videos }: SunsetsPageContentProps) {
   const [query, setQuery] = useState("");
 
@@ -37,57 +21,39 @@ export function SunsetsPageContent({ videos }: SunsetsPageContentProps) {
       return videos;
     }
 
-    // Split query by spaces to create multiple filter terms
-    const queryTerms = trimmedQuery
-      .split(/\s+/)
-      .map((term) =>
-        // Normalize each term: remove slashes, dashes, commas, ordinal suffixes
-        term.replace(/[,\-\/]+/g, "").replace(/(\d+)(st|nd|rd|th)/g, "$1"),
-      )
-      .filter((term) => term.length > 0);
-
-    if (queryTerms.length === 0) {
-      return videos;
-    }
-
     return videos.filter((video) => {
-      // Video keys are just filenames like "20260110_sunset.mp4"
-      const fileDate = video.key.slice(0, 8); // YYYYMMDD
+      // Video keys are like "20260110_sunset.mp4"
+      const filename = video.key.toLowerCase();
 
-      if (fileDate.length !== 8 || !/^\d{8}$/.test(fileDate)) {
-        return false;
+      // Try to extract date components from filename (YYYYMMDD format)
+      const dateMatch = filename.match(/^(\d{4})(\d{2})(\d{2})/);
+
+      if (dateMatch) {
+        const [, year, month, day] = dateMatch;
+        const restOfFilename = filename.slice(8); // Everything after YYYYMMDD
+
+        // Match if query matches any of these components:
+        // - Year (e.g., "2026")
+        // - Month (e.g., "01")
+        // - Day (e.g., "10")
+        // - Rest of filename (e.g., "_sunset.mp4")
+        return (
+          year.includes(trimmedQuery) ||
+          month === trimmedQuery ||
+          day === trimmedQuery ||
+          restOfFilename.includes(trimmedQuery)
+        );
       }
 
-      const year = fileDate.slice(0, 4);
-      const month = fileDate.slice(4, 6);
-      const day = fileDate.slice(6, 8);
-      const monthIndex = Number.parseInt(month, 10) - 1;
-      const monthName = MONTH_NAMES[monthIndex] || "";
-
-      // Build a searchable string containing all representations of this date
-      const searchableString = [
-        fileDate, // 20260110
-        year, // 2026
-        month, // 01
-        day, // 10
-        monthName, // january
-        `${month}${day}${year}`, // 01102026 (MM/DD/YYYY without slashes)
-        `${year}${month}${day}`, // 20260110 (YYYY-MM-DD without slashes)
-        `${month}${day}`, // 0110 (MM/DD)
-        `${day}${month}`, // 1001 (DD/MM)
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      // All query terms must match (AND logic)
-      return queryTerms.every((term) => searchableString.includes(term));
+      // Fallback: if filename doesn't match expected format, search entire filename
+      return filename.includes(trimmedQuery);
     });
   }, [query, videos]);
 
   const showingFiltered = query.trim().length > 0;
 
   return (
-    <div className="flex h-full w-full flex-col gap-10">
+    <div className="flex h-full w-full flex-col gap-16">
       <div className="text-center">
         <h1 className="text-3xl">Sunsets</h1>
         <div className="mx-auto mt-2 w-full max-w-md relative border-[var(--accent)]">
@@ -97,7 +63,7 @@ export function SunsetsPageContent({ videos }: SunsetsPageContentProps) {
           />
           <Input
             type="text"
-            placeholder="Search by date..."
+            placeholder="Search videos..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-10 pr-10 text-[var(--text)]"
@@ -113,7 +79,7 @@ export function SunsetsPageContent({ videos }: SunsetsPageContentProps) {
           )}
         </div>
       </div>
-      <div className="flex flex-col gap-10">
+      <div className="flex flex-col gap-16">
         {!showingFiltered && (
           <div className="w-full text-center">
             <h2 className="mb-3 text-2xl">Favorite Sunsets</h2>
@@ -127,9 +93,7 @@ export function SunsetsPageContent({ videos }: SunsetsPageContentProps) {
           <VideoGallery
             videos={filteredVideos}
             emptyMessage={
-              showingFiltered
-                ? "No sunsets found for this date."
-                : "No videos to display."
+              showingFiltered ? "No sunsets found." : "No videos to display."
             }
           />
         </div>

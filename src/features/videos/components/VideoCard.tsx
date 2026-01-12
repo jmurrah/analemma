@@ -78,7 +78,7 @@ export function VideoCard({
     <div className="w-full max-w-xs overflow-hidden">
       <VideoPlayer video={video} onSourceReady={setResolvedSrc} />
       <div
-        className="flex items-center justify-between px-2 pt-1 pb-2 border-t border-[var(--primary)] rounded-b-lg"
+        className="flex items-center justify-between px-2 pt-1 pb-2 border-t border-[var(--primary)]"
         style={{
           background:
             "linear-gradient(180deg, color-mix(in srgb, var(--primary) 10%, transparent) 30%, color-mix(in srgb, var(--bg) 80%, transparent) 100%)",

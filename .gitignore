@@ -8,3 +8,4 @@ dist/
 .vscode/
 .act-secrets
 .act-dispatch.json
+tmpclaude-*

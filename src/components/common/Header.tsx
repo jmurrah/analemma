@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { APP_TIME_ZONE, TIME_LOCALE } from "@/constants/time";
 import { locationEnv } from "@/config/env.server";
 import { auth } from "@/auth";
@@ -18,19 +17,11 @@ export default async function Header() {
   const timeLabel = formatCurrentTime();
 
   return (
-    <header className="mb-8 w-full flex flex-col gap-4">
+    <header className="mb-16 w-full flex flex-col gap-4">
       <div className="w-fill flex flex-wrap gap-3">
-        <Link href="/" className="text-3xl text-[var(--primary)]">
-          <h1>analemma</h1>
-        </Link>
+        <h1 className="text-3xl text-[var(--primary)]">analemma</h1>
         {session && (
           <div className="flex items-center justify-center gap-4 text-lg ml-auto">
-            <Link href="/" className="link-underline">
-              Home
-            </Link>
-            <Link href="/sunsets" className="link-underline">
-              Sunsets
-            </Link>
             <SignOutButton />
           </div>
         )}
