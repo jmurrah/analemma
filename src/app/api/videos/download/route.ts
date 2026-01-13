@@ -37,15 +37,16 @@ export async function GET(request: Request) {
       throw new Error(`Failed to fetch video: ${response.status}`);
     }
 
-    const blob = await response.blob();
-    const buffer = await blob.arrayBuffer();
+    if (!response.body) {
+      throw new Error("No response body from R2");
+    }
 
     // Check if this is a download request or view request
     const forceDownload = searchParams.get("download") === "1";
 
-    // Return the video with appropriate headers
-    // Use 'inline' to allow viewing in browser, rely on download attribute for actual downloads
-    return new NextResponse(buffer, {
+    // Stream the video instead of buffering it entirely
+    // This prevents memory issues with large video files
+    return new NextResponse(response.body, {
       headers: {
         "Content-Type": "video/mp4",
         "Content-Disposition": forceDownload
@@ -53,6 +54,7 @@ export async function GET(request: Request) {
           : `inline; filename="${key}"`,
         "Cache-Control": "public, max-age=86400",
         "Accept-Ranges": "bytes",
+        "Content-Length": response.headers.get("Content-Length") || "",
       },
     });
   } catch (error) {
