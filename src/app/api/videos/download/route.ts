@@ -33,12 +33,19 @@ export async function GET(request: Request) {
     const blob = await response.blob();
     const buffer = await blob.arrayBuffer();
 
-    // Return the video with download headers
+    // Check if this is a download request or view request
+    const forceDownload = searchParams.get("download") === "1";
+
+    // Return the video with appropriate headers
+    // Use 'inline' to allow viewing in browser, rely on download attribute for actual downloads
     return new NextResponse(buffer, {
       headers: {
         "Content-Type": "video/mp4",
-        "Content-Disposition": `attachment; filename="${key}"`,
+        "Content-Disposition": forceDownload
+          ? `attachment; filename="${key}"`
+          : `inline; filename="${key}"`,
         "Cache-Control": "public, max-age=86400",
+        "Accept-Ranges": "bytes",
       },
     });
   } catch (error) {
