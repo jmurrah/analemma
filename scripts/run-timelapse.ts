@@ -1,5 +1,8 @@
 import { spawn } from "node:child_process";
-import { Readable } from "node:stream";
+import { createReadStream } from "node:fs";
+import { unlink, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Upload } from "@aws-sdk/lib-storage";
 import { S3Client } from "@aws-sdk/client-s3";
 import { CameraRef, DownloadJob, RingContext } from "@/types/infra/ring";
@@ -106,7 +109,11 @@ function calculateSunsetWindow(): {
 function spawnFfmpeg(
   inputUrl: string,
   speed: number,
-): { stream: Readable; waitForExit: () => Promise<void> } {
+  outputPath: string,
+): {
+  waitForClose: () => Promise<void>;
+  process: ReturnType<typeof spawn>;
+} {
   const args = [
     "-i",
     inputUrl,
@@ -118,37 +125,44 @@ function spawnFfmpeg(
     "veryfast",
     "-crf",
     "23",
+    "-pix_fmt",
+    "yuv420p", // Ensures widest iOS compatibility
     "-movflags",
-    "frag_keyframe+empty_moov", // Use fragmented MP4 for streaming (works with pipes)
+    "+faststart", // Move moov atom to front for fast iPhone preview/scrubbing
     "-an",
     "-f",
     "mp4",
-    "pipe:1",
+    "-y", // Overwrite output file if exists
+    outputPath,
   ];
 
   const ffmpeg = spawn("ffmpeg", args, {
-    stdio: ["ignore", "pipe", "inherit"],
+    stdio: ["ignore", "ignore", "inherit"],
   });
 
-  if (!ffmpeg.stdout) {
-    throw new Error("ffmpeg did not produce a stdout stream");
-  }
-
-  const waitForExit = () =>
+  const waitForClose = () =>
     new Promise<void>((resolve, reject) => {
+      let exitCode: number | null = null;
+
       ffmpeg.on("exit", (code) => {
-        if (code !== 0) {
-          reject(new Error(`ffmpeg exited with code ${code}`));
+        exitCode = code;
+      });
+
+      // Wait for 'close' instead of 'exit' - ensures all stdio streams are closed
+      ffmpeg.on("close", (code) => {
+        if (code !== 0 && code !== null) {
+          reject(new Error(`ffmpeg closed with code ${code ?? exitCode}`));
         } else {
           resolve();
         }
       });
+
       ffmpeg.on("error", (err) => {
         reject(new Error(`ffmpeg process error: ${err.message}`));
       });
     });
 
-  return { stream: ffmpeg.stdout, waitForExit };
+  return { waitForClose, process: ffmpeg };
 }
 
 function createR2Client() {
@@ -172,25 +186,37 @@ function createR2Client() {
   });
 }
 
-async function uploadStreamToR2(body: Readable, key: string) {
+async function uploadFileToR2(filePath: string, key: string) {
   const bucket = process.env.R2_BUCKET;
 
   if (!bucket) {
     throw new Error("Missing R2_BUCKET");
   }
 
-  const client = createR2Client();
-  const uploader = new Upload({
-    client,
-    params: {
-      Bucket: bucket,
-      Key: key,
-      Body: body,
-      ContentType: "video/mp4",
-    },
-  });
+  // Get file size for Content-Length header
+  const fileStats = await stat(filePath);
+  console.log("File size:", fileStats.size, "bytes");
 
-  await uploader.done();
+  const client = createR2Client();
+  const fileStream = createReadStream(filePath);
+
+  try {
+    const uploader = new Upload({
+      client,
+      params: {
+        Bucket: bucket,
+        Key: key,
+        Body: fileStream,
+        ContentType: "video/mp4",
+        ContentLength: fileStats.size,
+      },
+    });
+
+    await uploader.done();
+  } finally {
+    // Ensure stream is closed even on error
+    fileStream.destroy();
+  }
 }
 
 async function ensureResultUrl(
@@ -244,14 +270,63 @@ async function main() {
     throw new Error("Download job did not return a result_url");
   }
 
-  const { stream, waitForExit } = spawnFfmpeg(job.result_url, inputs.speed);
+  // Create unique temp file path to avoid collisions
+  const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  const tempFilePath = join(tmpdir(), `${outKey}.${uniqueSuffix}.tmp`);
+  console.log("Temp file path:", tempFilePath);
 
-  await uploadStreamToR2(stream, outKey);
-  console.log("Upload complete", { key: outKey });
+  const { waitForClose, process: ffmpegProcess } = spawnFfmpeg(
+    job.result_url,
+    inputs.speed,
+    tempFilePath,
+  );
 
-  await waitForExit();
-  console.log("ffmpeg process finished");
-  process.exit(0);
+  let encodingSucceeded = false;
+  let uploadSucceeded = false;
+
+  try {
+    // Wait for ffmpeg to complete encoding
+    console.log("Waiting for ffmpeg to finish encoding...");
+    await waitForClose();
+    console.log("ffmpeg encoding completed successfully");
+    encodingSucceeded = true;
+
+    // Upload the file to R2
+    console.log("Uploading to R2 key", outKey);
+    await uploadFileToR2(tempFilePath, outKey);
+    console.log("Upload complete", { key: outKey });
+    uploadSucceeded = true;
+
+    // Success - return and let Node exit naturally (don't use process.exit!)
+    return;
+  } catch (error) {
+    console.error("Error during processing:", error);
+
+    // Kill ffmpeg if still running
+    if (ffmpegProcess.exitCode === null) {
+      console.warn("Killing ffmpeg process");
+      ffmpegProcess.kill("SIGTERM");
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (ffmpegProcess.exitCode === null) {
+        ffmpegProcess.kill("SIGKILL");
+      }
+    }
+
+    throw error;
+  } finally {
+    // Only cleanup temp file if upload succeeded
+    // Keep file on upload failure for inspection/retry
+    if (uploadSucceeded) {
+      try {
+        await unlink(tempFilePath);
+        console.log("Temp file cleaned up");
+      } catch (cleanupError) {
+        console.warn("Failed to clean up temp file:", cleanupError);
+      }
+    } else if (encodingSucceeded) {
+      console.log("Temp file preserved for inspection/retry:", tempFilePath);
+    }
+  }
 }
 
 main().catch((error) => {
