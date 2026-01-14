@@ -54,27 +54,16 @@ export function VideoCardActions({
         }
 
         if (!canShareFiles) {
-          // Can share URLs but not files - fallback to URL sharing
-          try {
-            console.log("File sharing not supported, trying URL share");
-            await navigator.share({
-              url: video.signedUrl,
-              title: cleanFilename,
-            });
-            console.log("URL share completed");
-            return;
-          } catch (urlShareError) {
-            if (
-              urlShareError instanceof Error &&
-              urlShareError.name !== "AbortError"
-            ) {
-              console.error("URL share failed:", urlShareError);
-              alert(
-                "Sharing not available. Play the video and use the share button in the player.",
-              );
-            }
-            return;
-          }
+          // Can't share files - show helpful message
+          // (URL sharing won't work with proxy URLs)
+          alert(
+            "File sharing not supported on this device.\n\n" +
+              "To save the video:\n" +
+              "1. Tap to play the video\n" +
+              "2. Tap the Share button in the video player\n" +
+              "3. Choose 'Save Video' or 'Save to Files'",
+          );
+          return;
         }
 
         try {
@@ -106,7 +95,11 @@ export function VideoCardActions({
             );
           }
 
-          const file = new File([blob], cleanFilename, { type: "video/mp4" });
+          // iOS Safari requires lastModified for proper file handling
+          const file = new File([blob], cleanFilename, {
+            type: "video/mp4",
+            lastModified: Date.now(),
+          });
 
           await navigator.share({
             files: [file],

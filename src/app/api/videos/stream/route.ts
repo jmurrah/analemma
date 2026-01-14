@@ -56,15 +56,19 @@ export async function GET(request: NextRequest) {
     responseHeaders.set("Accept-Ranges", "bytes");
     responseHeaders.set("Cache-Control", "private, max-age=3600");
 
-    // Forward content headers from R2
-    const contentLength = response.headers.get("content-length");
-    const contentRange = response.headers.get("content-range");
+    // Forward headers from R2 that iOS Safari needs for proper video handling
+    const headersToForward = [
+      "content-length",
+      "content-range",
+      "etag",
+      "last-modified",
+    ];
 
-    if (contentLength) {
-      responseHeaders.set("Content-Length", contentLength);
-    }
-    if (contentRange) {
-      responseHeaders.set("Content-Range", contentRange);
+    for (const header of headersToForward) {
+      const value = response.headers.get(header);
+      if (value) {
+        responseHeaders.set(header, value);
+      }
     }
 
     return new NextResponse(response.body, {
