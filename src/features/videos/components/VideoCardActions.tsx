@@ -1,6 +1,9 @@
 import { ArrowDownToLine, Star } from "lucide-react";
 import type { SignedVideo } from "@/features/videos/services/getSignedVideos";
-import { fetchAndCacheVideo } from "@/features/videos/utils/videoBlobCache";
+import {
+  fetchAndCacheVideo,
+  getCachedVideoRawBlob,
+} from "@/features/videos/utils/videoBlobCache";
 
 type VideoCardActionsProps = {
   video: SignedVideo;
@@ -75,15 +78,14 @@ export function VideoCardActions({
         }
 
         try {
-          let blob: Blob;
+          // Try to get cached blob directly from IndexedDB (fastest, most reliable)
+          // This avoids blob URL fetch issues on iOS Safari
+          let blob = await getCachedVideoRawBlob(video.key, video.etag);
 
-          // Use existing blob if available (faster, no re-download)
-          if (resolvedSrc && resolvedSrc.startsWith("blob:")) {
-            console.log("Using cached blob for share");
-            const response = await fetch(resolvedSrc);
-            blob = await response.blob();
+          if (blob) {
+            console.log("Using cached blob from IndexedDB");
           } else {
-            // Fetch video through proxy
+            // No cache - fetch through proxy
             console.log("Fetching video for share");
             const response = await fetch(video.signedUrl);
 

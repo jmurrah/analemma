@@ -32,10 +32,11 @@ const openDB = (): Promise<IDBDatabase> => {
   return dbPromise;
 };
 
-export const getCachedVideoBlob = async (
+// Internal helper to get cached entry with validation
+const getValidCachedEntry = async (
   key: string,
   expectedEtag?: string,
-): Promise<string | null> => {
+): Promise<CachedEntry | null> => {
   try {
     const db = await openDB();
     return new Promise((resolve) => {
@@ -52,8 +53,10 @@ export const getCachedVideoBlob = async (
         }
 
         const isExpired = Date.now() - result.cachedAt > CACHE_TTL_MS;
-        // Invalidate if expired OR if etag doesn't match (video was re-uploaded)
-        const etagMismatch = expectedEtag && result.etag !== expectedEtag;
+        // Invalidate if expired OR if both etags exist and don't match (video was re-uploaded)
+        // If cached entry has no etag (legacy), trust it
+        const etagMismatch =
+          expectedEtag && result.etag && result.etag !== expectedEtag;
         if (isExpired || etagMismatch) {
           // Clean up stale entry in background
           const deleteTx = db.transaction(STORE_NAME, "readwrite");
@@ -62,12 +65,31 @@ export const getCachedVideoBlob = async (
           return;
         }
 
-        resolve(URL.createObjectURL(result.blob));
+        resolve(result);
       };
     });
   } catch {
     return null;
   }
+};
+
+// Returns a blob URL for video playback
+export const getCachedVideoBlob = async (
+  key: string,
+  expectedEtag?: string,
+): Promise<string | null> => {
+  const entry = await getValidCachedEntry(key, expectedEtag);
+  return entry ? URL.createObjectURL(entry.blob) : null;
+};
+
+// Returns the raw Blob for direct use (e.g., file sharing)
+// This avoids the blob URL fetch issue on iOS Safari
+export const getCachedVideoRawBlob = async (
+  key: string,
+  expectedEtag?: string,
+): Promise<Blob | null> => {
+  const entry = await getValidCachedEntry(key, expectedEtag);
+  return entry?.blob ?? null;
 };
 
 export const cacheVideoBlob = async (
