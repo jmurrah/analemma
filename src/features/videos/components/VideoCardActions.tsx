@@ -9,6 +9,8 @@ type VideoCardActionsProps = {
   onToggleFavorite: () => void;
 };
 
+const ICON_SIZE_MOBILE = 24;
+
 export function VideoCardActions({
   video,
   resolvedSrc,
@@ -73,20 +75,25 @@ export function VideoCardActions({
         }
 
         try {
+          let blob: Blob;
+
           // Use existing blob if available (faster, no re-download)
-          const blobUrl =
-            resolvedSrc && resolvedSrc.startsWith("blob:")
-              ? resolvedSrc
-              : video.signedUrl;
+          if (resolvedSrc && resolvedSrc.startsWith("blob:")) {
+            console.log("Using cached blob for share");
+            const response = await fetch(resolvedSrc);
+            blob = await response.blob();
+          } else {
+            // Fetch video through proxy
+            console.log("Fetching video for share");
+            const response = await fetch(video.signedUrl);
 
-          console.log("Fetching video for share:", blobUrl);
-          const response = await fetch(blobUrl);
+            if (!response.ok) {
+              throw new Error(`Fetch failed: ${response.status}`);
+            }
 
-          if (!response.ok) {
-            throw new Error(`Fetch failed: ${response.status}`);
+            blob = await response.blob();
           }
 
-          const blob = await response.blob();
           console.log("Video blob size:", blob.size, "bytes");
 
           // Check for reasonable size (warn if > 100MB)
@@ -154,31 +161,31 @@ export function VideoCardActions({
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3 sm:gap-2">
       <button
         type="button"
         onClick={handleDownload}
-        className="group rounded cursor-pointer"
+        className="group rounded cursor-pointer p-2 -m-2 sm:p-0 sm:m-0"
         aria-label="Download video"
       >
         <ArrowDownToLine
-          size={18}
-          className="text-[var(--text)] group-hover:text-[var(--primary)]"
+          size={ICON_SIZE_MOBILE}
+          className="text-[var(--text)] group-hover:text-[var(--primary)] sm:w-[18px] sm:h-[18px]"
         />
       </button>
       <button
         type="button"
         onClick={onToggleFavorite}
-        className="group rounded cursor-pointer"
+        className="group rounded cursor-pointer p-2 -m-2 sm:p-0 sm:m-0"
         aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
       >
         <Star
-          size={18}
-          className={
+          size={ICON_SIZE_MOBILE}
+          className={`sm:w-[18px] sm:h-[18px] ${
             isFavorited
               ? "text-[var(--primary-glow)]"
               : "text-[var(--text)] group-hover:text-[var(--primary-glow)]"
-          }
+          }`}
           fill={isFavorited ? "currentColor" : "none"}
         />
       </button>

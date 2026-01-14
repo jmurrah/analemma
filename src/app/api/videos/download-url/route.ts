@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
-import { signR2GetObjectUrl } from "@/lib/r2/signGetObject";
 import { isValidVideoKey } from "@/features/videos/utils/validateVideoKey";
 import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Generates a short-lived download URL for a video
- * This allows mobile devices to download without exposing long-lived credentials
+ * Returns a proxy URL for downloading a video
+ * Keeps R2 credentials server-side
  */
 export async function GET(request: Request) {
-  // Check authentication
   const session = await auth();
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -30,16 +28,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid video key" }, { status: 400 });
   }
 
-  try {
-    // Generate a short-lived presigned URL (5 minutes)
-    const { url } = await signR2GetObjectUrl(key, 300);
-
-    return NextResponse.json({ downloadUrl: url });
-  } catch (error) {
-    console.error("Failed to generate download URL", error);
-    return NextResponse.json(
-      { error: "Failed to generate download URL" },
-      { status: 500 },
-    );
-  }
+  // Return proxy URL - keeps R2 credentials server-side
+  const proxyUrl = `/api/videos/stream?key=${encodeURIComponent(key)}`;
+  return NextResponse.json({ downloadUrl: proxyUrl });
 }

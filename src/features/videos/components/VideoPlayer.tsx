@@ -2,10 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { SignedVideo } from "@/features/videos/services/getSignedVideos";
-import {
-  getCachedVideoBlob,
-  refreshSignedUrl,
-} from "@/features/videos/utils/videoBlobCache";
+import { getCachedVideoBlob } from "@/features/videos/utils/videoBlobCache";
 import { generatePosterFromVideo } from "@/features/videos/utils/generatePoster";
 import { VideoPlayButton } from "@/features/videos/components/VideoPlayButton";
 import { VideoControls } from "@/features/videos/components/VideoControls";
@@ -26,7 +23,6 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [posterImage, setPosterImage] = useState<string | null>(null);
   const [hasLoadedData, setHasLoadedData] = useState(false);
-  const [hasTriedRefresh, setHasTriedRefresh] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -134,36 +130,17 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
         onPause={() => setIsPlaying(false)}
         onError={(e) => {
           const videoElement = e.currentTarget;
-          const errorDetails = {
+          console.error("Video error:", {
             code: videoElement.error?.code,
             message: videoElement.error?.message,
             src: src,
-            networkState: videoElement.networkState,
-            readyState: videoElement.readyState,
-          };
-          console.error("Video error details:", errorDetails);
+          });
 
-          if (videoElement.error?.code) {
-            console.error(`Media error code ${videoElement.error.code}`);
-          }
-
+          // If blob URL failed, fallback to proxy URL
           if (src?.startsWith("blob:")) {
-            console.log("Blob URL failed, attempting fallback to signed URL");
+            console.log("Blob URL failed, falling back to proxy URL");
             setSrc(video.signedUrl);
             setHasLoadedData(false);
-          } else if (!hasTriedRefresh) {
-            // Signed URL likely expired, try fetching a fresh one
-            console.log("Signed URL failed, fetching fresh URL");
-            setHasTriedRefresh(true);
-            setHasLoadedData(false);
-            refreshSignedUrl(video.key)
-              .then((freshUrl) => {
-                console.log("Got fresh signed URL, retrying");
-                setSrc(freshUrl);
-              })
-              .catch((err) => {
-                console.error("Failed to refresh signed URL:", err);
-              });
           }
         }}
         preload="metadata"
