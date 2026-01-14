@@ -26,7 +26,7 @@ export const useVideoPlayback = ({
     if (element.paused) {
       if (!hasTriggeredCache) {
         setHasTriggeredCache(true);
-        void fetchAndCacheVideo(video.key, video.signedUrl);
+        void fetchAndCacheVideo(video.key, video.signedUrl, video.etag);
       }
 
       void element.play().catch((error) => {
@@ -39,6 +39,7 @@ export const useVideoPlayback = ({
     videoRef,
     video.key,
     video.signedUrl,
+    video.etag,
     hasTriggeredCache,
     setHasTriggeredCache,
   ]);

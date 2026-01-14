@@ -139,7 +139,7 @@ export function VideoCardActions({
       const downloadUrl =
         existingUrl && existingUrl.startsWith("blob:")
           ? existingUrl
-          : await fetchAndCacheVideo(video.key, video.signedUrl);
+          : await fetchAndCacheVideo(video.key, video.signedUrl, video.etag);
 
       const link = document.createElement("a");
       link.href = downloadUrl;

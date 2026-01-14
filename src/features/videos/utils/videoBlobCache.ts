@@ -34,6 +34,7 @@ const openDB = (): Promise<IDBDatabase> => {
 
 export const getCachedVideoBlob = async (
   key: string,
+  expectedEtag?: string,
 ): Promise<string | null> => {
   try {
     const db = await openDB();
@@ -51,8 +52,10 @@ export const getCachedVideoBlob = async (
         }
 
         const isExpired = Date.now() - result.cachedAt > CACHE_TTL_MS;
-        if (isExpired) {
-          // Clean up expired entry in background
+        // Invalidate if expired OR if etag doesn't match (video was re-uploaded)
+        const etagMismatch = expectedEtag && result.etag !== expectedEtag;
+        if (isExpired || etagMismatch) {
+          // Clean up stale entry in background
           const deleteTx = db.transaction(STORE_NAME, "readwrite");
           deleteTx.objectStore(STORE_NAME).delete(key);
           resolve(null);
@@ -70,13 +73,14 @@ export const getCachedVideoBlob = async (
 export const cacheVideoBlob = async (
   key: string,
   blob: Blob,
+  etag?: string,
 ): Promise<void> => {
   try {
     const db = await openDB();
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, "readwrite");
       const store = tx.objectStore(STORE_NAME);
-      const entry: CachedEntry = { key, blob, cachedAt: Date.now() };
+      const entry: CachedEntry = { key, blob, cachedAt: Date.now(), etag };
       const request = store.put(entry);
 
       request.onerror = () => resolve();
@@ -90,9 +94,10 @@ export const cacheVideoBlob = async (
 export const fetchAndCacheVideo = async (
   key: string,
   url: string,
+  etag?: string,
 ): Promise<string> => {
-  // Check cache first
-  const cached = await getCachedVideoBlob(key);
+  // Check cache first - pass etag for validation
+  const cached = await getCachedVideoBlob(key, etag);
   if (cached) return cached;
 
   // Fetch video
@@ -103,8 +108,8 @@ export const fetchAndCacheVideo = async (
 
   const blob = await response.blob();
 
-  // Cache in background (don't await)
-  void cacheVideoBlob(key, blob);
+  // Cache in background with etag (don't await)
+  void cacheVideoBlob(key, blob, etag);
 
   return URL.createObjectURL(blob);
 };

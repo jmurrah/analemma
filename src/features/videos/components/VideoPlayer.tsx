@@ -43,7 +43,7 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
 
     const initializeSrc = async () => {
       try {
-        const cachedUrl = await getCachedVideoBlob(video.key);
+        const cachedUrl = await getCachedVideoBlob(video.key, video.etag);
         if (cancelled) return;
 
         const resolved = cachedUrl || video.signedUrl;
@@ -65,7 +65,7 @@ export function VideoPlayer({ video, onSourceReady }: VideoPlayerProps) {
     return () => {
       cancelled = true;
     };
-  }, [onSourceReady, video.key, video.signedUrl]);
+  }, [onSourceReady, video.key, video.signedUrl, video.etag]);
 
   useEffect(() => {
     if (!src || !src.startsWith("blob:") || !isReady || duration === 0) {
