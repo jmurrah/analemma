@@ -57,7 +57,7 @@ export default function SunsetCountdown({
         </p>
         <div className="text-[var(--text-muted)] flex items-center justify-center gap-2">
           <Info size={16} className="self-end mb-1" />
-          <span>Videos upload daily around 8:15 PM ET</span>
+          <span>Videos upload daily around 9:00 PM ET</span>
         </div>
       </div>
     </div>
