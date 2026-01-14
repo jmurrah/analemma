@@ -30,6 +30,7 @@ const getCachedVideoList = unstable_cache(
 );
 
 // Cache signed URLs with 12h TTL per video key (ensures 12h validity buffer)
+// Tag allows on-demand revalidation when URLs expire
 const getCachedSignedUrl = (key: string) =>
   unstable_cache(
     async () => {
@@ -40,7 +41,7 @@ const getCachedSignedUrl = (key: string) =>
       return { url, expiresAt };
     },
     ["signed-url", key],
-    { revalidate: URL_REVALIDATE_SECONDS },
+    { revalidate: URL_REVALIDATE_SECONDS, tags: [`signed-url-${key}`] },
   )();
 
 export const getSignedVideos = async (
