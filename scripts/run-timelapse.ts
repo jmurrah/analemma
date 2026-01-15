@@ -118,7 +118,9 @@ function spawnFfmpeg(
     "-i",
     inputUrl,
     "-vf",
-    `scale=-2:1080,setpts=PTS/${speed}`,
+    `setpts=PTS/${speed},scale=-2:1080`,
+    "-vsync",
+    "vfr", // Variable frame rate: keep ALL frames, no drops due to timestamp gaps
     "-c:v",
     "libx264",
     "-preset",
